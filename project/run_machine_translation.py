@@ -195,6 +195,20 @@ def train(model, optimizer, examples, n_samples, collate_fn, batch_size, desc):
         loss.backward()
         t2 = time.time()
 
+        # Gradient clipping to prevent NaN from exploding gradients
+        max_norm = 1.0
+        total_norm_sq = 0.0
+        for p in model.parameters():
+            if p.value.grad is not None:
+                g = p.value.grad
+                total_norm_sq += float((g * g).sum().item())
+        total_norm = total_norm_sq ** 0.5
+        if total_norm > max_norm:
+            clip_coef = max_norm / (total_norm + 1e-6)
+            for p in model.parameters():
+                if p.value.grad is not None:
+                    p.value.grad = p.value.grad * clip_coef
+
         optimizer.step()
         t3 = time.time()
 

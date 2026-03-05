@@ -380,10 +380,13 @@ class CudaKernelOps(TensorOps):
     def attn_softmax_fw(inp: Tensor, mask: Tensor):
       inp = inp.contiguous()
       batch_size, nhead, from_len, to_len = inp.shape
-      # The CUDA kernel expects mask shape [batch_size, to_len], not [bs, nh, seq, seq].
-      # For causal (dec-self-attn) use is_dec_self_attn=True which activates
-      # mask_future internally. Pass a zero mask of the correct size.
-      is_dec_self_attn = True
+      # The CUDA kernel expects mask shape [batch_size, to_len] as an additive
+      # padding mask (0 for valid, -inf for padding). The causal (mask_future)
+      # triangular masking is handled internally by the kernel when
+      # is_dec_self_attn=True. We always pass a zero additive mask since the
+      # input mask from create_causal_mask is already baked in before this call
+      # in the non-fused path; here the kernel handles it natively via mask_future.
+      is_dec_self_attn = mask is not None  # True = apply causal mask internally
       stream = torch.cuda.current_stream().cuda_stream
 
       zero_mask = inp.zeros((batch_size, to_len))
@@ -416,6 +419,8 @@ class CudaKernelOps(TensorOps):
     @staticmethod
     def attn_softmax_bw(out_grad: Tensor, soft_inp: Tensor):
       #   BEGIN ASSIGN4_1_2
+      out_grad = out_grad.contiguous()
+      soft_inp = soft_inp.contiguous()
       stream = torch.cuda.current_stream().cuda_stream
       lib_softmax.launch_attn_softmax_bw.argtypes = [
         np.ctypeslib.ndpointer(dtype=datatype, ndim=1, flags='C_CONTIGUOUS'),
@@ -506,7 +511,8 @@ class CudaKernelOps(TensorOps):
           ctypes.c_void_p,
           ctypes.c_void_p
       ]
-      
+      lib_layernorm.launch_layernorm_bw.restype = None
+
       gamma_grad = gamma.zeros(gamma.shape)
       beta_grad = beta.zeros(beta.shape)
       inp_grad = inp.zeros(inp.shape)

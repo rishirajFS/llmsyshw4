@@ -260,8 +260,8 @@ ker_ln_bw_dgamma_dbetta(T *gamma_grad, T *betta_grad, const T *out_grad,
   if (threadIdx.x == 0) {
     int final_col = blockIdx.x * TILE_DIM + threadIdx.y;
     if (final_col < width) {
-      gamma_grad[final_col] = sum_dgamma;
-      betta_grad[final_col] = sum_dbetta;
+      atomicAdd(&gamma_grad[final_col], sum_dgamma);
+      atomicAdd(&betta_grad[final_col], sum_dbetta);
     }
   }
   // END ASSIGN4_2_2
