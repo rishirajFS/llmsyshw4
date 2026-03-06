@@ -16,13 +16,19 @@ source /etc/profile.d/lmod.sh 2>/dev/null || true
 module load cuda/12.4.0
 
 WORKDIR=/jet/home/rnagaraj/workspace/llmsyshw4
-PYTHON=$WORKDIR/.venv/bin/python3
 
 cd $WORKDIR
 
-echo "Python $($PYTHON --version)"
+# Activate venv so python3 and all deps (including minitorch) are available
+source .venv/bin/activate
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+
+# Ensure minitorch is installed in the active venv
+pip install -e . -q
+
+echo "Python $(python3 --version)"
 echo "nvcc: $(nvcc --version | tail -1)"
-$PYTHON -m pip show minitorch 2>/dev/null | grep -E 'Name|Version|Location' || true
+python3 -m pip show minitorch 2>/dev/null | grep -E 'Name|Version|Location' || true
 
 # Compile CUDA kernels (will fail early if nvcc is not available)
 bash compile_cuda.sh
@@ -30,7 +36,7 @@ bash compile_cuda.sh
 set +e  # Allow training to continue even if one run fails
 
 echo '--- RUNNING WITHOUT FUSED KERNELS ---'
-$PYTHON project/run_machine_translation.py --use_fused_kernel=False
+python3 project/run_machine_translation.py --use_fused_kernel=False
 
 echo '--- RUNNING WITH FUSED KERNELS ---'
-$PYTHON project/run_machine_translation.py --use_fused_kernel=True
+python3 project/run_machine_translation.py --use_fused_kernel=True
