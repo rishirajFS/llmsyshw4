@@ -24,7 +24,7 @@ source .venv/bin/activate
 export PYTHONPATH=$PYTHONPATH:$(pwd)
 
 # Ensure minitorch is installed in the active venv
-pip install -e . -q
+python3 -m pip install -e . -q
 
 echo "Python $(python3 --version)"
 echo "nvcc: $(nvcc --version | tail -1)"
